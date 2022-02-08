@@ -21,9 +21,9 @@ namespace TegningHenter.Commands
         public override async Task ExecuteAsync(object parameter)
         {
             MainScraperFlow flow = new();
-            await flow.TestDownloadFile();
+            //await flow.TestDownloadFile();
 
-            //await flow.GetDefaultDrawings(Vm.Address, 2);
+            await flow.GetDefaultDrawings(Vm.Address, 2);
         }
     }
 }

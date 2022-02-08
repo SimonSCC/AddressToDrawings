@@ -4,6 +4,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Webscraper;
@@ -19,6 +20,7 @@ namespace Logic
         string address;
         public async Task GetDefaultDrawings(string adress, int zoomLvl)
         {
+            List<string> filePaths = new();
             //Maybe top bottom parameters to put large borders into view. Or allow user is perfect the view, then press save in program. But then, perhaps run browser in program
 
             string startUrl = "https://arealinformation.miljoeportal.dk/";
@@ -66,7 +68,7 @@ namespace Logic
                 otherTools.Click();
                 Thread.Sleep(1000);
                 //Save default picture (zoom lvl 2)
-                await SavePicture();
+                filePaths.Add(await SavePicture(1));
 
                 //Toggle airial foto
                 IWebElement luftFotoNyeste = scraper.Driver.FindElement(By.CssSelector("input[aria-label='Ortofoto forår (nyeste)']"));
@@ -74,21 +76,24 @@ namespace Logic
                 Thread.Sleep(1000);
 
                 //Save arial foto normal zoom lvl
-                await SavePicture();
+                filePaths.Add(await SavePicture(2));
 
                 //zoom one more lvl
                 zoomIn.Click();
                 Thread.Sleep(1000);
 
                 //Save arial photo zoomed
-                await SavePicture();
+                filePaths.Add(await SavePicture(3));
 
                 //Disable airial view
                 luftFotoNyeste.Click();
                 Thread.Sleep(1000);
 
                 //Save zoomed normal picture.
-                await SavePicture();
+                filePaths.Add(await SavePicture(4));
+
+
+                SaveAsPdf(filePaths, address);
             }
             catch (Exception e)
             {
@@ -97,7 +102,7 @@ namespace Logic
         }
 
 
-        public async Task<string> SavePicture()
+        public async Task<string> SavePicture(int nrInSequennce)
         {
             IWebElement saveAsPic = scraper.Driver.FindElement(By.CssSelector("button[title='Gem som billede']"));
             saveAsPic.Click();
@@ -129,13 +134,15 @@ namespace Logic
             Console.WriteLine(pngUrl);
 
             PictureDownloader downloader = new();
-            await downloader.InitiateDownload(pngUrl, address);
+            string pathToFile = await downloader.InitiateDownload(pngUrl, address, nrInSequennce.ToString());
             scraper.Driver.Close();
             scraper.Driver.SwitchTo().Window(scraper.Driver.WindowHandles[0]);
             Thread.Sleep(1000);
             IWebElement closeBtn = scraper.Driver.FindElement(By.CssSelector("button[title='Luk Eksporter et kortbillede']"));
             closeBtn.Click();
             Thread.Sleep(1000);
+
+            return pathToFile;
         }
 
         public bool IsElementPresent(By locatorKey)
@@ -155,19 +162,29 @@ namespace Logic
         }
 
 
-        public void SaveAsPdf(List<string> imgPaths)
+        public void SaveAsPdf(List<string> imgPaths, string pdfName)
         {
             //PictureDownloader downloader = new();
             //await downloader.InitiateDownload("https://arealinformation.miljoeportal.dk/Geocortex/Essentials/REST/TempFiles/Export.png?guid=563797f7-a4e0-42a7-9bd8-8a3a352bbcff&contentType=image%2Fpng"
             //    , "poopoo Street 51");
 
+
+            //Docs - https://docs.gehtsoftusa.com/pdfflow/web-content.html#CreatingDocument.html
             var section = DocumentBuilder.New().AddSection();
 
             for (int i = 0; i < imgPaths.Count; i++)
             {
-                section.AddImage(imgPaths[i]).ToSection();
+                section.AddImage(imgPaths[i]).ToSection().InsertPageBreak();
+               
             }
-            section.ToDocument().Build(@"C:\TegningHenter\testfromapp.pdf");
+            section.ToDocument().Build($@"C:\TegningHenter\{pdfName}.pdf");
+
+
+            //Delete pictures
+            for (int i = 0; i < imgPaths.Count; i++)
+            {
+                File.Delete(imgPaths[i]);
+            }
 
         }
     }
